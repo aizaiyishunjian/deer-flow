@@ -1,91 +1,97 @@
-name: Build DeerFlow Images (Separated Jobs)
+name: Build and Export DeerFlow (Downloadable)
 
 on:
-  workflow_dispatch: # 允许手动点击运行
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要构建的分支或标签 (例如: main, v0.1.0)'
+        required: true
+        default: 'main'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  # 任务 1: 构建后端
-  build-backend:
+  # --- 任务 1: 构建并打包后端 ---
+  build-and-export-backend:
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and Push Backend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: backend/Dockerfile
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend:latest
+          ref: ${{ github.event.inputs.version }}
 
-  # 任务 2: 构建前端 (最占空间和时间)
-  build-frontend:
+      - name: Build Backend
+        run: |
+          docker build -t deer-flow-backend:${{ github.event.inputs.version }} -f backend/Dockerfile .
+          # 导出并压缩 (使用 gzip 减小体积)
+          docker save deer-flow-backend:${{ github.event.inputs.version }} | gzip > deer-flow-backend.tar.gz
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deer-flow-backend-image
+          path: deer-flow-backend.tar.gz
+          retention-days: 1
+
+  # --- 任务 2: 构建并打包前端 (最占空间) ---
+  build-and-export-frontend:
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
       - name: Maximize space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and Push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: frontend/Dockerfile
-          target: prod
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:latest
-          build-args: |
-            PNPM_STORE_PATH=/root/.local/share/pnpm/store
 
-  # 任务 3: 构建 Nginx 和其他
-  build-others:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Nginx
+      - name: Build Frontend
         run: |
+          docker build -t deer-flow-frontend:${{ github.event.inputs.version }} \
+            --build-arg PNPM_STORE_PATH=/root/.local/share/pnpm/store \
+            --target prod -f frontend/Dockerfile .
+          docker save deer-flow-frontend:${{ github.event.inputs.version }} | gzip > deer-flow-frontend.tar.gz
+
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deer-flow-frontend-image
+          path: deer-flow-frontend.tar.gz
+          retention-days: 1
+
+  # --- 任务 3: 构建并打包 Nginx 和 Provisioner ---
+  build-and-export-others:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Build Others
+        run: |
+          # 构建 Nginx
           cat <<EOF > Nginx.Dockerfile
           FROM nginx:alpine
           COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
           EOF
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/nginx:latest -f Nginx.Dockerfile .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/nginx:latest
-      - name: Build Provisioner
-        run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/provisioner:latest -f docker/provisioner/Dockerfile ./docker/provisioner
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/provisioner:latest
+          docker build -t deer-flow-nginx:${{ github.event.inputs.version }} -f Nginx.Dockerfile .
+          
+          # 构建 Provisioner
+          docker build -t deer-flow-provisioner:${{ github.event.inputs.version }} -f docker/provisioner/Dockerfile ./docker/provisioner
+          
+          # 导出并压缩为一个包
+          docker save \
+            deer-flow-nginx:${{ github.event.inputs.version }} \
+            deer-flow-provisioner:${{ github.event.inputs.version }} | gzip > deer-flow-others.tar.gz
+
+      - name: Upload Others Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deer-flow-others-image
+          path: deer-flow-others.tar.gz
+          retention-days: 1
