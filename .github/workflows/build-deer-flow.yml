@@ -63,8 +63,8 @@ jobs:
           path: deer-flow-frontend.tar.gz
           retention-days: 1
 
-  # --- 任务 3: 构建并打包 Nginx 和 Provisioner ---
-  build-and-export-others:
+  # --- 任务 3: 构建并打包Provisioner ---
+  build-and-export-provisioner:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -73,25 +73,16 @@ jobs:
           ref: ${{ github.event.inputs.version }}
 
       - name: Build Others
-        run: |
-          # 构建 Nginx
-          cat <<EOF > Nginx.Dockerfile
-          FROM nginx:alpine
-          COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
-          EOF
-          docker build -t deer-flow-nginx:${{ github.event.inputs.version }} -f Nginx.Dockerfile .
-          
+        run: |                
           # 构建 Provisioner
           docker build -t deer-flow-provisioner:${{ github.event.inputs.version }} -f docker/provisioner/Dockerfile ./docker/provisioner
           
           # 导出并压缩为一个包
-          docker save \
-            deer-flow-nginx:${{ github.event.inputs.version }} \
-            deer-flow-provisioner:${{ github.event.inputs.version }} | gzip > deer-flow-others.tar.gz
+          docker save deer-flow-provisioner:${{ github.event.inputs.version }} | gzip > deer-flow-provisioner.tar.gz
 
-      - name: Upload Others Artifact
+      - name: Upload Provisioner Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deer-flow-others-image
-          path: deer-flow-others.tar.gz
+          name: deer-flow-provisioner-image
+          path: deer-flow-provisioner.tar.gz
           retention-days: 1
