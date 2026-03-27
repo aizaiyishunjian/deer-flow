@@ -30,9 +30,8 @@ COPY backend ./backend
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.cache/uv \
-    sh -c "cd backend/packages/harness && uv sync && \
-           cd ../../ && \
-           cd backend && uv sync"
+    sh -c "(cd backend/packages/harness && uv sync) && \
+           (cd backend && uv sync)"
 # RUN --mount=type=cache,target=/root/.cache/uv \
     # sh -c "cd backend && uv sync"
 
