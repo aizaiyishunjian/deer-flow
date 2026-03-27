@@ -13,7 +13,7 @@ COPY backend/pyproject.toml ./pyproject.toml
 # 1. 安装构建 deerflow-harness 所需的依赖 (比如 hatchling)
 # 2. 将 deerflow-harness 构建成一个 .whl 文件，并存放到 /app/dist 目录
 RUN uv pip install --system "hatchling" && \
-    uv wheel --out-dir /app/dist ./packages/harness
+    uv pip wheel --out-dir /app/dist ./packages/harness
 
 # Backend Development Dockerfile
 FROM python:3.12-slim
