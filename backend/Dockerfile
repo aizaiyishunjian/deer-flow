@@ -46,12 +46,12 @@ COPY --from=builder /app/dist /app/dist
 
 # Copy frontend source code
 COPY backend ./backend
-RUN rm -rf backend/packages
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.cache/uv \
     sh -c "uv pip install --system /app/dist/*.whl && \
-           cd backend && uv sync"
+           cd backend && uv sync && \
+           mv packages ../packages_source"
 
 # Expose ports (gateway: 8001, langgraph: 2024)
 EXPOSE 8001 2024
