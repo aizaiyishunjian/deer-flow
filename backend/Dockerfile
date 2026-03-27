@@ -46,6 +46,7 @@ COPY --from=builder /app/dist /app/dist
 
 # Copy frontend source code
 COPY backend ./backend
+RUN rm -rf backend/packages
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.cache/uv \
