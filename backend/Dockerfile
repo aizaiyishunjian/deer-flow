@@ -49,7 +49,7 @@ COPY backend ./backend
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.cache/uv \
-    sh -c "uv pip install /app/dist/*.whl && \
+    sh -c "uv pip install --system /app/dist/*.whl && \
            cd backend && uv sync"
 
 # Expose ports (gateway: 8001, langgraph: 2024)
