@@ -21,8 +21,8 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8.0.0", "ruff>=0.14.11"]
 
-[tool.uv.workspace]
-members = ["packages/harness"]
+#[tool.uv.workspace]
+#members = ["packages/harness"]
 
-[tool.uv.sources]
-deerflow-harness = { workspace = true }
+#[tool.uv.sources]
+#deerflow-harness = { workspace = true }
